@@ -126,12 +126,16 @@ Was mit ungültigen Nachrichten passiert, steht in Abschnitt 3.6.
 2. Er sammelt Nachrichten zu einem **Stapel**. Ein Stapel ist fertig, sobald **500 Nachrichten**
    beisammen sind oder **200 ms lang keine neue** Nachricht kam.
 3. Jede Nachricht des Stapels wird gelesen und geprüft (2.4). Ungültige gehen nach 3.6.
-4. Alle gültigen Nachrichten werden in **einer einzigen Datenbank-Transaktion** eingefügt, mit
-   `INSERT ... ON CONFLICT (id) DO NOTHING`.
+4. Alle gültigen Nachrichten werden mit **einer einzigen INSERT-Anweisung** eingefügt, die alle
+   Zeilen des Stapels enthält: `INSERT ... VALUES (...), (...), ... ON CONFLICT (id) DO NOTHING`.
+   Eine einzelne Anweisung ist in PostgreSQL immer genau eine Transaktion: Danach stehen entweder
+   alle Zeilen des Stapels in der Tabelle oder keine.
 5. **Erst nach dem COMMIT** bestätigt der `batch-writer` jede gültige Nachricht des Stapels (ACK).
    Die Bestätigung macht er selbst (manuelle Bestätigung), nicht automatisch durch Spring.
 6. Er protokolliert pro Stapel: Anzahl Nachrichten, davon neu eingefügt, davon als Duplikat
-   verworfen, davon ungültig.
+   verworfen, davon ungültig. Die Zahl der neu eingefügten Zeilen meldet die Datenbank als
+   Ergebnis der INSERT-Anweisung zurück. Die Differenz zur Zahl der gültigen Nachrichten sind die
+   Duplikate.
 
 **Begründung für «erst COMMIT, dann ACK»:** Wäre die Reihenfolge umgekehrt und der Dienst stürzt
 dazwischen ab, hätte RabbitMQ die Nachricht schon gelöscht, aber in der Datenbank stünde sie nie.
@@ -186,7 +190,7 @@ Damit das funktioniert:
 zustande kommt oder eine bestehende abbricht. Technisch heisst das: In der Kette der Ursachen
 steckt eine `SQLTransientConnectionException` oder eine `SQLException`, deren SQLState mit `08`
 beginnt (Klasse «connection exception»). Das gilt auch, wenn Spring sie in eine eigene Ausnahme
-verpackt hat, etwa `CannotCreateTransactionException`.
+verpackt hat, etwa `CannotGetJdbcConnectionException`.
 
 **Verhalten:**
 
@@ -238,7 +242,7 @@ Das ist ein Fehler, der **nicht** in 3.5 fällt, zum Beispiel ein Wert, den die 
 aufnehmen kann. Mit der Prüfung aus 2.4 und dem Schema aus 4.1 sollte das nicht vorkommen. Es ist
 trotzdem geregelt, weil ein einziger solcher Fall sonst den ganzen Stapel blockiert:
 
-1. Die Stapel-Transaktion wird zurückgerollt.
+1. Die INSERT-Anweisung des Stapels schlägt als Ganzes fehl. Keine ihrer Zeilen ist gespeichert.
 2. Der `batch-writer` schreibt die Nachrichten dieses Stapels **einmal einzeln**, jede in einer
    eigenen Transaktion.
 3. Jede, die dabei gelingt, wird bestätigt. Jede, die weiterhin abgelehnt wird, geht wie in 3.6
@@ -330,7 +334,16 @@ Diese Werte sind feste Entscheide des Dienstes und stehen in `application.yml`, 
 | Zeitlimit ohne neue Nachricht | 200 ms | 3.1 |
 | Pausen bei Datenbankausfall | 1, 2, 4, 8, dann 10 s | 3.5 |
 | `connectionTimeout` des Pools | 5 s | 3.5 |
-| JDBC `reWriteBatchedInserts` | `true` | Der Treiber fasst die Zeilen eines Stapels zu wenigen mehrzeiligen INSERT-Anweisungen zusammen, statt jede einzeln zu schicken |
+
+**Eine Anweisung pro Stapel.** Der `batch-writer` baut die INSERT-Anweisung selbst, mit so vielen
+Zeilen `(?, ?, ?, ?, ?, ?)` wie der Stapel gültige Nachrichten hat. Die Werte gehen als Parameter
+hinein, nie in den SQL-Text. Bei 500 Nachrichten sind das 3000 Parameter, weit unter der Grenze
+von 32'767 Parametern pro Anweisung.
+
+| | Begründung |
+|---|---|
+| **Gewählt:** eine INSERT-Anweisung mit allen Zeilen | Genau «ein Bulk-INSERT» wie in `PLANUNG.md` 3.6. Ein einziger Weg zur Datenbank, eine Transaktion, und die Datenbank meldet zurück, wie viele Zeilen neu waren |
+| Verworfen: JDBC-Batch mit `reWriteBatchedInserts=true` | Der Treiber fasst die Zeilen zwar auch zusammen, meldet dann aber nicht mehr, wie viele neu eingefügt wurden. Damit liessen sich Duplikate nicht zählen (3.1, Schritt 6) |
 
 ### 4.5 Umgebungsvariablen
 
@@ -370,7 +383,8 @@ absichtliches `docker compose stop` (S4) bleibt gestoppt.
 
 `batch-writer` ist ein Modul im Eltern-POM (`<module>batch-writer</module>`), wie der
 `chat-service`. Paket `ch.benedict.m321.batchwriter`. Abhängigkeiten: `spring-boot-starter-amqp`,
-`spring-boot-starter-jdbc`, `postgresql`, Lombok (für `@Slf4j` und `@RequiredArgsConstructor`, wie
+`spring-boot-starter-jdbc`, `spring-boot-starter-json` (liefert den `ObjectMapper`, der das JSON
+liest), `postgresql`, Lombok (für `@Slf4j` und `@RequiredArgsConstructor`, wie
 in `CLAUDE.md` vorgesehen). Für die Tests Testcontainers mit `rabbitmq` und `postgresql`. Kein
 Webserver: Der Dienst hat keine HTTP-Schnittstelle.
 
