@@ -5,6 +5,10 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /build
 COPY pom.xml .
 COPY chat-service/pom.xml chat-service/pom.xml
+# Das Eltern-POM nennt auch den batch-writer. Maven liest beim Bauen alle
+# Module ein, auch wenn nur eines gebaut wird. Ohne diese Zeile bricht der
+# Build mit "Child module ... does not exist" ab.
+COPY batch-writer/pom.xml batch-writer/pom.xml
 COPY chat-service/src chat-service/src
 # Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon
 # INNERHALB des Builds. Getestet wird vorher mit "mvn test".
