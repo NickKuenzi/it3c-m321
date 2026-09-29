@@ -17,6 +17,12 @@ spring:
     username: ${POSTGRES_USER:chat}
     password: ${POSTGRES_PASSWORD:chat}
 
+  sql:
+    init:
+      # schema.sql bei jedem Start ausführen. Ohne diese Zeile tut Spring Boot
+      # das nur bei eingebetteten Datenbanken, nicht bei PostgreSQL.
+      mode: always
+
 logging:
   level:
     # Im Unterricht wollen wir jeden Schritt sehen.
