@@ -23,6 +23,15 @@ spring:
       # das nur bei eingebetteten Datenbanken, nicht bei PostgreSQL.
       mode: always
 
+batch-writer:
+  # Ein Stapel ist bei 500 Nachrichten voll. Kommt 200 ms lang keine neue,
+  # geht er auch unvollständig los (Spezifikation 3.1, 4.4).
+  batch-size: 500
+  batch-timeout-ms: 200
+  # So viele Nachrichten darf der Verbraucher unbestätigt halten.
+  # Mindestens so gross wie der Stapel, sonst wird nie ein Stapel voll.
+  prefetch: 500
+
 logging:
   level:
     # Im Unterricht wollen wir jeden Schritt sehen.
