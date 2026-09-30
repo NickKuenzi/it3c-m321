@@ -24,12 +24,33 @@ Alle Aufgaben werden in **deinem Fork** gelöst. Das Original-Repository bleibt 
 ## Bauen, testen, starten
 
 ```bash
-mvn test                         # alle Tests, RabbitMQ kommt per Testcontainers
-docker compose up --build        # RabbitMQ und chat-service im Netz chat-net
+mvn test                         # alle Tests, RabbitMQ und PostgreSQL kommen per Testcontainers
+docker compose up -d --build     # RabbitMQ, chat-service, postgres und batch-writer im Netz chat-net
 ```
 
-Der `chat-service` veröffentlicht bewusst **keinen Port** auf den Host. Der einzige offene Port
-des Gesamtsystems gehört später dem Gateway.
+Kein Dienst veröffentlicht einen Port auf den Host. Der einzige offene Port des Gesamtsystems
+gehört später dem Gateway.
+
+### Szenarien nachstellen
+
+Die Skripte unter `scripts/` laufen in einem kurzlebigen Container im Netz `chat-net`, weil kein
+Port nach aussen offen ist. In der Windows-Eingabeaufforderung (cmd) `%cd%` statt `$PWD`:
+
+```bash
+# 1000 Nachrichten per POST /messages, Text S3-1, S3-2, ...
+docker run --rm --network chat-net --env-file .env -v "$PWD/scripts:/scripts:ro" curlimages/curl sh /scripts/send.sh S3 1000
+# dieselbe Nachricht zweimal direkt in chat.persist (Duplikat)
+docker run --rm --network chat-net --env-file .env -v "$PWD/scripts:/scripts:ro" curlimages/curl sh /scripts/publish-twice.sh
+# erste Nachricht in chat.persist ansehen, ohne sie zu entfernen
+docker run --rm --network chat-net --env-file .env -v "$PWD/scripts:/scripts:ro" curlimages/curl sh /scripts/peek-persist.sh
+
+# nachzählen
+docker compose exec postgres psql -U chat -d chat -tAc "SELECT count(*) FROM message WHERE content LIKE 'S3-%'"
+docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
+```
+
+Alle Szenarien mit Befehl und Erwartung stehen in
+[`docs/spec-batch-writer.md`](docs/spec-batch-writer.md), Abschnitt 5.
 
 ## Was gebaut wird
 
@@ -37,8 +58,8 @@ des Gesamtsystems gehört später dem Gateway.
 |---|---|---|---|
 | chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange | vorhanden |
 | rabbitmq | RabbitMQ 3.13 | Message Queue zwischen den Services | vorhanden |
-| batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank | folgt |
-| postgres | PostgreSQL | Speichert den Chat-Verlauf | folgt |
+| batch-writer | Spring Boot 3, Java 21 | Liest `chat.persist` gebündelt und schreibt in die Datenbank, einziger Schreiber | vorhanden |
+| postgres | PostgreSQL 17 | Speichert den Chat-Verlauf (Tabelle `message`) | vorhanden |
 | keycloak | Keycloak | Login (OIDC) | folgt |
 | web-gateway | nginx | Einziger nach aussen offener Port | folgt |
 | Web-UI | React | Browser-Client | folgt |
@@ -54,6 +75,10 @@ erreichbar.
   — grafische Fassung der Planung, lokal im Browser öffnen.
 - [`docs/plan-chat-service.md`](docs/plan-chat-service.md) — Schritt-für-Schritt-Plan, nach dem
   der `chat-service` gebaut wurde. Jeder Schritt mit Test.
+- [`docs/spec-batch-writer.md`](docs/spec-batch-writer.md) — Spezifikation des `batch-writer`:
+  Vertrag, Verhalten bei Duplikat und Ausfall, Abnahmekriterien.
+- [`docs/plan-batch-writer.md`](docs/plan-batch-writer.md) — Umsetzungsplan des `batch-writer`,
+  ein Commit pro Schritt.
 - [`CLAUDE.md`](CLAUDE.md) — Codestil-Regeln für dieses Projekt. Gelten auch für dich.
 - [`docs/flipchart-chat-app.png`](docs/flipchart-chat-app.png) — das Flipchart aus der Lektion,
   von dem die Planung ausgeht.
