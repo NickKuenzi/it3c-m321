@@ -1,6 +1,5 @@
-# Ausbaustufe 1: nur der Broker und der chat-service.
-# Postgres, Keycloak, web-gateway und batch-writer kommen in den
-# folgenden Schritten dazu.
+# Ausbaustufe 2: Broker, chat-service, Datenbank und batch-writer.
+# Keycloak und web-gateway kommen in den folgenden Schritten dazu.
 services:
 
   rabbitmq:
@@ -30,8 +29,54 @@ services:
     networks:
       - chat-net
 
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Benanntes Volume: Die Daten überleben ein stop/start des Containers.
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - chat-net
+    healthcheck:
+      # $$ statt $: Die Variable wird im Container gelesen, nicht von Compose.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Kein container_name: Sonst liesse sich der Dienst nicht mit
+  # --scale batch-writer=2 mehrfach starten.
+  batch-writer:
+    build:
+      context: .
+      dockerfile: batch-writer/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    # Stürzt der Dienst ab, startet Docker ihn neu. Ein absichtliches
+    # "docker compose stop batch-writer" bleibt aber gestoppt.
+    restart: unless-stopped
+    networks:
+      - chat-net
+
 # KEIN ports:-Eintrag in dieser Datei. Der einzige offene Port des
 # Gesamtsystems gehört später dem web-gateway.
 networks:
   chat-net:
     name: chat-net
+
+volumes:
+  postgres-data:
