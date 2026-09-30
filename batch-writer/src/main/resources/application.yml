@@ -16,6 +16,11 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:chat}
     username: ${POSTGRES_USER:chat}
     password: ${POSTGRES_PASSWORD:chat}
+    hikari:
+      # Nach 5 s ohne Verbindung gibt der Pool auf und meldet den Fehler.
+      # Vorgabe wären 30 s. So merkt der batch-writer einen Ausfall schnell
+      # und kann nach der Pause neu versuchen (Spezifikation 3.5).
+      connection-timeout: 5000
 
   sql:
     init:
@@ -31,6 +36,9 @@ batch-writer:
   # So viele Nachrichten darf der Verbraucher unbestätigt halten.
   # Mindestens so gross wie der Stapel, sonst wird nie ein Stapel voll.
   prefetch: 500
+  # Ist die Datenbank weg: Pausen zwischen den Versuchen in ms. Nach der
+  # letzten Pause bleibt es bei 10 s, ohne Obergrenze (Spezifikation 3.5).
+  retry-pauses-ms: 1000,2000,4000,8000,10000
 
 logging:
   level:
