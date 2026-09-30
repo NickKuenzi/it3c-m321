@@ -134,6 +134,40 @@ class BatchConsumerIntegrationTest {
     }
 
     /**
+     * Spezifikation 3.7: Eine Nachricht ist gültiges JSON, aber die Datenbank
+     * lehnt sie ab. Ihr Text enthält ein Nullbyte, das PostgreSQL in einer
+     * Textspalte nicht speichern kann. Damit schlägt das INSERT des ganzen
+     * Stapels fehl.
+     *
+     * Erwartet: Die zwei normalen Nachrichten stehen trotzdem in der Tabelle,
+     * die eine abgelehnte liegt in chat.dlq.
+     */
+    @Test
+    void rowRejectedByDatabaseGoesToDeadLetterQueueAndOthersAreWritten() throws InterruptedException {
+        UUID firstId = UUID.randomUUID();
+        String firstJson = toJson(firstId, "erste");
+        UUID rejectedId = UUID.randomUUID();
+        // Im JSON steht die Escape-Sequenz für das Nullbyte. Der doppelte
+        // Backslash sorgt dafür, dass Java sie unverändert ins JSON schreibt.
+        String rejectedJson = toJson(rejectedId, "vor\\u0000nach");
+        UUID secondId = UUID.randomUUID();
+        String secondJson = toJson(secondId, "zweite");
+
+        sendRaw(firstJson);
+        sendRaw(rejectedJson);
+        sendRaw(secondJson);
+
+        waitForRowCount(2);
+        waitForMessageCount(QueueNames.DEAD_LETTER_QUEUE, 1);
+        int firstRows = countRowsWithId(firstId);
+        int secondRows = countRowsWithId(secondId);
+        int rejectedRows = countRowsWithId(rejectedId);
+        assertEquals(1, firstRows);
+        assertEquals(1, secondRows);
+        assertEquals(0, rejectedRows);
+    }
+
+    /**
      * Viele Nachrichten, also mehrere volle Stapel: Alle landen in der Tabelle,
      * chat.persist ist danach leer, und genau ein Verbraucher hängt an der Queue.
      */

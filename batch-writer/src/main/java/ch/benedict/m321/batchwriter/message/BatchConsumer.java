@@ -66,14 +66,62 @@ public class BatchConsumer {
             }
         }
 
-        int insertedRows = writeUntilDatabaseAnswers(validMessages);
-
-        acknowledgeAll(validDeliveries, channel);
-
         int invalidCount = batch.size() - validMessages.size();
-        int duplicateCount = validMessages.size() - insertedRows;
-        log.info("Batch of {} messages: {} inserted, {} duplicates, {} invalid",
-                batch.size(), insertedRows, duplicateCount, invalidCount);
+
+        try {
+            int insertedRows = writeUntilDatabaseAnswers(validMessages);
+            acknowledgeAll(validDeliveries, channel);
+
+            int duplicateCount = validMessages.size() - insertedRows;
+            log.info("Batch of {} messages: {} inserted, {} duplicates, {} invalid",
+                    batch.size(), insertedRows, duplicateCount, invalidCount);
+        } catch (DataAccessException exception) {
+            // Die Datenbank ist da, lehnt aber den Stapel ab. Eine einzige
+            // schlechte Zeile reisst beim Bulk-INSERT alle anderen mit.
+            log.warn("Database rejected batch of {} messages, writing them one by one: {}",
+                    validMessages.size(), exception.getMessage());
+            writeOneByOne(validDeliveries, validMessages, channel);
+        }
+    }
+
+    /**
+     * Der Einzelweg (Spezifikation 3.7): Jede Nachricht des abgelehnten Stapels
+     * wird in einer eigenen Anweisung geschrieben. So findet sich die eine, die
+     * die Datenbank nicht will, und die anderen werden trotzdem gespeichert.
+     *
+     * Auch hier gilt die Warteschleife: Fällt die Datenbank genau jetzt aus,
+     * wird gewartet und nicht aussortiert. Nur was die Datenbank selbst
+     * ablehnt, geht nach chat.dlq.
+     *
+     * deliveries und messages sind gleich lang, derselbe Index gehört zur
+     * selben Nachricht.
+     */
+    private void writeOneByOne(List<Message> deliveries, List<ChatMessage> messages, Channel channel)
+            throws IOException, InterruptedException {
+        int insertedRows = 0;
+        int rejectedCount = 0;
+
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage chatMessage = messages.get(i);
+            Message delivery = deliveries.get(i);
+            long deliveryTag = deliveryTagOf(delivery);
+            List<ChatMessage> singleMessage = List.of(chatMessage);
+
+            try {
+                int inserted = writeUntilDatabaseAnswers(singleMessage);
+                channel.basicAck(deliveryTag, false);
+                insertedRows = insertedRows + inserted;
+            } catch (DataAccessException exception) {
+                log.warn("Rejecting message {} to {}: {}",
+                        chatMessage.id(), QueueNames.DEAD_LETTER_QUEUE, exception.getMessage());
+                // requeue = false: nicht zurück in chat.persist, sondern nach chat.dlq.
+                channel.basicReject(deliveryTag, false);
+                rejectedCount = rejectedCount + 1;
+            }
+        }
+
+        log.info("Single writes of {} messages: {} inserted, {} rejected",
+                messages.size(), insertedRows, rejectedCount);
     }
 
     /**
@@ -85,7 +133,8 @@ public class BatchConsumer {
      * Nachrichten bleiben also bei RabbitMQ als «zugestellt, aber offen».
      * Stirbt der Dienst in dieser Zeit, stellt RabbitMQ sie neu zu.
      *
-     * Jeder andere Datenbankfehler wird weitergeworfen. Warten hilft dort nicht.
+     * Jeder andere Datenbankfehler wird weitergeworfen, der Aufrufer geht dann
+     * den Einzelweg. Warten hilft dort nicht.
      *
      * @throws InterruptedException wenn der Dienst während einer Pause beendet
      *         wird. Dann hört das Warten auf, die Nachrichten bleiben offen.
