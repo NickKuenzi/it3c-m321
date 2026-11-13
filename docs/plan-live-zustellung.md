@@ -159,7 +159,13 @@ unbekannte ID behandelt; übernommen, weil so ein Header zu keiner Nachricht geh
 
 **Commit:** `test: Zustellung an zwei Instanzen`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (32 Tests, davon 2 neue in
+`TwoInstancesIntegrationTest`). Kontrolliert: Der Test startet zwei vollständige chat-service-
+Anwendungen am selben RabbitMQ, weil `@SpringBootTest` nur eine Anwendung startet. Die
+Live-Queues haben verschiedene Namen mit je einem Verbraucher (Spezifikation 3.2). Je 200
+Nachrichten über `POST /messages` an jede Instanz: Beide Clients in Raum A erhalten alle 400,
+keine doppelt, die Reihenfolge pro Absender stimmt; der Client in Raum B erhält nur seine eigene
+Nachricht (Szenario S3). Nichts geändert.*
 
 ---
 
