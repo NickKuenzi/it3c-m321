@@ -26,6 +26,7 @@ Alle Aufgaben werden in **deinem Fork** gelöst. Das Original-Repository bleibt 
 ```bash
 mvn test                         # alle Tests, RabbitMQ und PostgreSQL kommen per Testcontainers
 docker compose up -d --build     # RabbitMQ, chat-service, postgres und batch-writer im Netz chat-net
+docker compose up -d --scale chat-service=2   # zweite chat-service-Instanz für die Live-Zustellung
 ```
 
 Kein Dienst veröffentlicht einen Port auf den Host. Der einzige offene Port des Gesamtsystems
@@ -52,11 +53,30 @@ docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
 Alle Szenarien mit Befehl und Erwartung stehen in
 [`docs/spec-batch-writer.md`](docs/spec-batch-writer.md), Abschnitt 5.
 
+### Live-Zustellung nachstellen
+
+Jede Instanz heisst im Netz `it3c-m321-chat-service-1`, `-2`, … (`docker compose ps` zeigt die
+Namen; bei einem anderen Ordnernamen ändert sich der vordere Teil).
+
+```bash
+# Client an Instanz 1, Raum A, 60 s zuhören; zeigt Anzahl und letzte id
+docker run --rm --network chat-net --env-file .env -v "$PWD/scripts:/scripts:ro" curlimages/curl sh /scripts/listen.sh it3c-m321-chat-service-1 5e2a9c10-1111-4d7e-8a3b-2c4d6e8f0a1b 60
+# 200 Nachrichten gezielt über Instanz 2 in Raum A
+docker run --rm --network chat-net --env-file .env -v "$PWD/scripts:/scripts:ro" curlimages/curl sh /scripts/send.sh S3 200 it3c-m321-chat-service-2
+# Neuverbindung mit Last-Event-ID (S7)
+docker run --rm --network chat-net --env-file .env -v "$PWD/scripts:/scripts:ro" curlimages/curl sh /scripts/listen.sh it3c-m321-chat-service-1 5e2a9c10-1111-4d7e-8a3b-2c4d6e8f0a1b 15 <letzte-id>
+# Live-Queues am Exchange chat.delivery
+docker compose exec rabbitmq rabbitmqctl list_bindings source_name destination_name
+```
+
+Alle Szenarien der Live-Zustellung stehen in
+[`docs/spec-live-zustellung.md`](docs/spec-live-zustellung.md), Abschnitt 6.
+
 ## Was gebaut wird
 
 | Baustein | Technologie | Aufgabe | Stand |
 |---|---|---|---|
-| chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange | vorhanden |
+| chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange; stellt sie über `GET /stream` (Server-Sent Events) live an alle Clients im Raum zu, mit Nachholen per `Last-Event-ID` | vorhanden |
 | rabbitmq | RabbitMQ 3.13 | Message Queue zwischen den Services | vorhanden |
 | batch-writer | Spring Boot 3, Java 21 | Liest `chat.persist` gebündelt und schreibt in die Datenbank, einziger Schreiber | vorhanden |
 | postgres | PostgreSQL 17 | Speichert den Chat-Verlauf (Tabelle `message`) | vorhanden |
@@ -79,6 +99,10 @@ erreichbar.
   Vertrag, Verhalten bei Duplikat und Ausfall, Abnahmekriterien.
 - [`docs/plan-batch-writer.md`](docs/plan-batch-writer.md) — Umsetzungsplan des `batch-writer`,
   ein Commit pro Schritt.
+- [`docs/spec-live-zustellung.md`](docs/spec-live-zustellung.md) — Spezifikation der
+  Live-Zustellung: Vertrag, Verhalten bei zwei Instanzen, Ausfall und Neuverbindung, Queues.
+- [`docs/plan-live-zustellung.md`](docs/plan-live-zustellung.md) — Umsetzungsplan der
+  Live-Zustellung mit den Aufträgen an die KI.
 - [`CLAUDE.md`](CLAUDE.md) — Codestil-Regeln für dieses Projekt. Gelten auch für dich.
 - [`docs/flipchart-chat-app.png`](docs/flipchart-chat-app.png) — das Flipchart aus der Lektion,
   von dem die Planung ausgeht.

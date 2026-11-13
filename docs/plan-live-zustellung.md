@@ -181,7 +181,13 @@ Nachricht (Szenario S3). Nichts geändert.*
 
 **Commit:** `test: Skripte fuer die Szenarien der Live-Zustellung`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Auf dem laufenden Stack mit `--scale chat-service=2` getestet:
+`listen.sh` an Instanz 1 in Raum A, dann je 5 Nachrichten mit `send.sh` gezielt über Instanz 1
+und Instanz 2; `listen.sh` zählte 10. Damit kommt auch eine Nachricht von Instanz 2 beim Client
+an Instanz 1 an. `send.sh` funktioniert ohne die neuen Werte wie bisher (Bewertung 1). Zusätzlich
+zum Auftrag hat die KI `--max-time 10` in `send.sh` eingebaut, damit das Skript bei einer
+angehaltenen Instanz (S6) nicht hängt; übernommen. README-Tabelle «Stand» und Abschnitt
+«Live-Zustellung nachstellen» kontrolliert.*
 
 ---
 
