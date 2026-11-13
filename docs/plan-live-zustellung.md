@@ -40,13 +40,13 @@ Die Umsetzung erfolgt von innen nach aussen. Zuerst werden die benötigten Rabbi
 
 **Commit:** `feat: eigene Live-Queue pro Instanz am Exchange chat.delivery`
 
-**Geprüft und korrigiert:** *mvn -pl chat-service -am test` grün (17 Tests, davon 3 neue in
+**Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (17 Tests, davon 3 neue in
 `LiveQueueIntegrationTest`). In `RabbitConfig.liveQueue` kontrolliert: exklusiv, Auto-Delete,
 höchstens 1000 Nachrichten mit `drop-head` und 30 s TTL, die Werte kommen aus `application.yml`.
 Das stimmt mit Spezifikation 3.3, 3.5 und 4.2 überein. Der Name besteht aus Rechnername und
 zufälligem Teil und ist damit auch bei zwei Instanzen auf demselben Rechner eindeutig.
 Die KI hat die Queue zusätzlich als nicht dauerhaft angelegt. Das habe ich übernommen, weil
-eine Live-Queue keinen Neustart des Brokers überleben muss. Sonst nichts geändert.*
+eine Live-Queue keinen Neustart des Brokers überleben muss. Sonst nichts geändert.
 
 ---
 
@@ -62,14 +62,14 @@ eine Live-Queue keinen Neustart des Brokers überleben muss. Sonst nichts geänd
 
 **Commit:** `feat: Zwischenspeicher der letzten 100 Nachrichten pro Raum`
 
-**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (23 Tests, davon 6 neue in
+**Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (23 Tests, davon 6 neue in
 `RoomMessageBufferTest`). In `RoomMessageBuffer` kontrolliert: pro Raum eine eigene Schlange,
 neue Nachrichten hinten, ab der 101. fällt vorne die älteste weg, die Grösse 100 kommt aus
 `application.yml` (Spezifikation 4.1). `findMessagesAfter` liefert die Nachrichten nach der ID in
 Eingangsreihenfolge. Zusätzlich zum Auftrag hat die KI zwei Dinge eingebaut, die ich übernommen
 habe: die Klasse `MissedMessages`, weil eine leere Liste allein nicht zeigt, ob die ID unbekannt
 war (nötig für `resync`, Spezifikation 2.3), und `synchronized` auf beiden Methoden, weil der
-Verbraucher schreibt, während HTTP-Anfragen lesen.*
+Verbraucher schreibt, während HTTP-Anfragen lesen.
 
 ---
 
@@ -85,7 +85,15 @@ Verbraucher schreibt, während HTTP-Anfragen lesen.*
 
 **Commit:** `feat: Nachrichten aus der Live-Queue in den Zwischenspeicher legen`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Erster Testlauf rot: `ChatServiceApplicationTest.contextLoads` scheiterte
+mit `ACCESS_REFUSED`. Ursache: Seit Schritt 3 hört der Dienst beim Start an der Live-Queue und
+braucht dafür RabbitMQ. Der alte Test hatte keinen eigenen Broker und verband sich mit dem, was
+auf meinem Rechner auf localhost:5672 lief. Korrigiert: Der Test bekommt einen eigenen
+RabbitMQ-Container, damit er auf jedem Rechner gleich läuft. Danach grün (24 Tests, davon 1 neuer
+in `LiveMessageListenerIntegrationTest`). In `LiveMessageListener` kontrolliert: `receive` hört auf
+die Live-Queue aus Schritt 1 (Name über `#{liveQueue.name}`, weil er einen Zufallsteil hat) und
+legt jede Nachricht in den Zwischenspeicher, auch ohne Client im Raum (Spezifikation 4.1).
+`concurrency = "1"` sorgt für genau einen Verbraucher pro Instanz (Spezifikation 3.2).*
 
 ---
 
