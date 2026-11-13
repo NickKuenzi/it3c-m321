@@ -211,4 +211,7 @@ einen kurzen deutschen Kommentar, der sagt, was der Test prüft. Ändere sonst n
 
 **Commit:** `docs: Kommentare ueber allen Testmethoden im chat-service`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** 15 Kommentare über Testmethoden ergänzt, Code unverändert. Erster
+Testlauf scheiterte, weil ein RabbitMQ-Testcontainer nicht startete: Der Docker-Stack lief noch
+und Docker war überlastet. Nach `docker compose down` grün (32 Tests). Nachgeprüft, dass jetzt
+über jeder Klasse und Methode in chat-service ein Kommentar steht.
