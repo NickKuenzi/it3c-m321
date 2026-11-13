@@ -109,7 +109,18 @@ legt jede Nachricht in den Zwischenspeicher, auch ohne Client im Raum (Spezifika
 
 **Commit:** `feat: SSE-Endpunkt /stream stellt Nachrichten pro Raum zu`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Erster Testlauf hing: Spring schickt die SSE-Antwort erst mit dem
+ersten Ereignis, der Testclient wartete in einem leeren Raum ewig. Korrigiert: `register` schickt
+beim Anmelden sofort einen SSE-Kommentar `:connected`, den Clients ignorieren; der Testclient
+bekam ein Zeitlimit von 10 s, damit so ein Fehler den Test rot macht statt ihn hängen zu lassen.
+Danach grün (27 Tests, davon 3 neue in `StreamControllerIntegrationTest`). In `StreamController`
+kontrolliert: `GET /stream` mit `text/event-stream`, roomId als UUID, damit Spring bei fehlender
+oder ungültiger roomId selbst 400 antwortet (Spezifikation 2.2); die Verbindung meldet sich bei
+Ende, Zeitablauf oder Fehler ab (Spezifikation 3.7). In `LiveDelivery` kontrolliert: pro Raum
+eine Liste von Verbindungen, `deliver` legt die Nachricht zuerst in den Zwischenspeicher und
+schickt sie dann nur an den eigenen Raum, mit `id:` und `data:` (Spezifikation 2.2, 3.2). Alle
+Methoden haben dieselbe Sperre; übernommen, weil Schritt 5 das für das gesperrte Nachholen
+braucht (Spezifikation 3.6).*
 
 ---
 
