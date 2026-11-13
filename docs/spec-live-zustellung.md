@@ -121,6 +121,10 @@ Das ist sinnvoll, weil ein Client nach einer Pause möglichst aktuelle Nachricht
 
 Die Queue wird auf maximal 1000 Nachrichten begrenzt. Diese Grenze verhindert, dass RabbitMQ bei einer nicht reagierenden Instanz unbegrenzt Speicher verbraucht.
 
+Die maximale Anzahl von 1000 Nachrichten wird aufgeteilt: Die RabbitMQ-Queue darf höchstens 990 wartende Nachrichten enthalten (`x-max-length=990`). Zusätzlich darf der Consumer maximal 10 Nachrichten im Voraus beziehen (`prefetch=10`). Damit bleibt die Gesamtzahl der gleichzeitig wartenden und bereits vom Consumer geholten Nachrichten auf höchstens 1000 begrenzt.
+
+Der Grund für diese Aufteilung ist, dass RabbitMQ bei `x-max-length` nur die Nachrichten zählt, die noch in der Queue warten. Nachrichten, die der Consumer bereits bezogen hat und noch verarbeitet, werden dabei nicht mitgezählt. Ohne die Aufteilung wurden beim Test S6 insgesamt 1250 Nachrichten erreicht.
+
 Bei `chat.live` dürfen ältere Nachrichten entfernt werden, weil es sich um eine Live-Zustellung handelt und die neuesten Nachrichten wichtiger sind.
 
 Bei `chat.persist` dürfen Nachrichten dagegen nicht einfach entfernt werden, weil diese für die dauerhafte Speicherung vorgesehen sind.
@@ -174,6 +178,12 @@ Jede ankommende Nachricht wird im Zwischenspeicher abgelegt, auch wenn gerade ke
 | `chat.dlq` | RabbitMQ-Konfiguration | Dauerhaft | Keine | Keine Begrenzung |
 
 Für `chat.live.<instanz>` gilt zusätzlich eine Nachrichten-TTL von 30 Sekunden (`x-message-ttl`). Nachrichten, die länger als 30 Sekunden in der Queue liegen, verfallen.
+
+| Einstellung | Wert | Beschreibung |
+|---|---:|---|
+| `x-max-length` | 990 | Höchstens 990 Nachrichten dürfen in der Queue warten. |
+| `prefetch` | 10 | Der Consumer darf höchstens 10 Nachrichten im Voraus beziehen. |
+| Gesamtgrenze | 1000 | Maximal 1000 wartende und bereits bezogene Nachrichten zusammen. |
 
 Der Platzhalter `<instanz>` steht für die jeweilige Kennung der chat-service-Instanz. Dadurch besitzt jede Instanz eine eigene Queue.
 
