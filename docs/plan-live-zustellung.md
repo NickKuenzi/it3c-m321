@@ -136,7 +136,14 @@ braucht (Spezifikation 3.6).*
 
 **Commit:** `feat: verpasste Nachrichten mit Last-Event-ID nachliefern`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (30 Tests, davon 3 neue in
+`ReconnectIntegrationTest`, darunter der Pflicht-Test für S7 mit genau 50 nachgeholten
+Nachrichten). In `LiveDelivery.register` kontrolliert: erst `:connected`, dann Nachholen aus dem
+Zwischenspeicher, dann Anmelden für live; alles unter derselben Sperre wie `deliver`, damit
+zwischen Nachholen und Anmelden keine Nachricht verloren geht oder doppelt kommt
+(Spezifikation 3.6). Unbekannte ID gibt ein `resync`-Ereignis ohne `id:` (Spezifikation 2.3).
+Zusätzlich zum Auftrag hat die KI einen ungültigen Last-Event-ID-Header (keine UUID) wie eine
+unbekannte ID behandelt; übernommen, weil so ein Header zu keiner Nachricht gehören kann.*
 
 ---
 

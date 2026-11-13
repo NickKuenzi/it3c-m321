@@ -61,13 +61,29 @@ public class LiveDelivery {
     /**
      * Meldet eine neue Verbindung für einen Raum an. Ab jetzt bekommt sie live.
      *
-     * Als Erstes geht ein SSE-Kommentar raus (eine Zeile, die mit «:»
-     * beginnt). Clients ignorieren ihn. Er sorgt aber dafür, dass Spring die
-     * Antwort sofort mit Status 200 und text/event-stream abschickt. Ohne ihn
-     * schickt Spring die Kopfzeilen erst mit der ersten Nachricht, und ein
-     * Client in einem leeren Raum wüsste nicht, ob er verbunden ist.
+     * Ablauf, alles unter derselben Sperre wie deliver (Spezifikation 3.6):
+     * 1. SSE-Kommentar «:connected». Clients ignorieren ihn. Er sorgt aber
+     *    dafür, dass Spring die Antwort sofort mit Status 200 abschickt. Ohne
+     *    ihn kämen die Kopfzeilen erst mit der ersten Nachricht.
+     * 2. Hat der Client eine Last-Event-ID mitgeschickt: verpasste
+     *    Nachrichten nachliefern, oder resync, wenn die ID unbekannt ist.
+     * 3. Verbindung in die Liste des Raums, ab jetzt kommt alles live.
+     *
+     * Weil deliver dieselbe Sperre braucht, kann zwischen 2 und 3 keine neue
+     * Nachricht durchrutschen: Sie wartet, bis die Anmeldung fertig ist, und
+     * kommt dann live. So geht nichts verloren und nichts kommt doppelt.
+     *
+     * @param lastEventId die ID der letzten Nachricht, die der Client hatte,
+     *                    oder null bei einer ganz neuen Verbindung
      */
-    public synchronized void register(UUID roomId, SseEmitter connection) {
+    public synchronized void register(UUID roomId, SseEmitter connection, UUID lastEventId) {
+        SseEmitter.SseEventBuilder connected = SseEmitter.event().comment("connected");
+        sendOrRemove(roomId, connection, connected);
+
+        if (lastEventId != null) {
+            sendMissedMessages(roomId, connection, lastEventId);
+        }
+
         List<SseEmitter> roomConnections = connectionsByRoom.get(roomId);
         if (roomConnections == null) {
             roomConnections = new ArrayList<>();
@@ -75,9 +91,32 @@ public class LiveDelivery {
         }
         roomConnections.add(connection);
         log.debug("Client connected to room {}, {} connections", roomId, roomConnections.size());
+    }
 
-        SseEmitter.SseEventBuilder connected = SseEmitter.event().comment("connected");
-        sendOrRemove(roomId, connection, connected);
+    /**
+     * Schickt die Nachrichten nach lastEventId aus dem Zwischenspeicher, in
+     * ihrer Reihenfolge (Spezifikation 2.3, 3.6).
+     *
+     * Ist die ID unbekannt (zu alt, anderer Raum, nie gesendet), weiss niemand,
+     * was fehlt. Dann geht ein Ereignis «resync» raus, bewusst OHNE id:, damit
+     * der Client seine letzte echte Nachrichten-ID behält.
+     */
+    private void sendMissedMessages(UUID roomId, SseEmitter connection, UUID lastEventId) {
+        MissedMessages missed = roomMessageBuffer.findMessagesAfter(roomId, lastEventId);
+        if (!missed.lastIdKnown()) {
+            log.debug("Last-Event-ID {} unknown in room {}, sending resync", lastEventId, roomId);
+            SseEmitter.SseEventBuilder resync = SseEmitter.event()
+                    .name("resync")
+                    .data("Last-Event-ID unknown, messages may be missing");
+            sendOrRemove(roomId, connection, resync);
+            return;
+        }
+
+        List<ChatMessage> messagesToReplay = missed.messages();
+        log.debug("Replaying {} messages after {} in room {}", messagesToReplay.size(), lastEventId, roomId);
+        for (ChatMessage message : messagesToReplay) {
+            sendMessageOrRemove(roomId, connection, message);
+        }
     }
 
     /**
