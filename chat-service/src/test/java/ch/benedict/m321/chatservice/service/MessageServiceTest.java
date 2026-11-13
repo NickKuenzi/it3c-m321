@@ -39,6 +39,7 @@ class MessageServiceTest {
         }
     }
 
+    /** Der Dienst vergibt ID und Zeitstempel selbst, nicht der Client. */
     @Test
     void assignsIdAndTimestamp() {
         RecordingPublisher publisher = new RecordingPublisher();
@@ -53,6 +54,7 @@ class MessageServiceTest {
         assertNotNull(response.sentAt());
     }
 
+    /** Genau eine Veröffentlichung, mit derselben ID wie in der Antwort. */
     @Test
     void publishesExactlyOnceWithTheSameId() {
         RecordingPublisher publisher = new RecordingPublisher();
@@ -70,6 +72,7 @@ class MessageServiceTest {
         assertEquals("Hallo", publisher.published.content());
     }
 
+    /** Zwei Anfragen bekommen zwei verschiedene IDs. */
     @Test
     void assignsADifferentIdEveryTime() {
         RecordingPublisher publisher = new RecordingPublisher();

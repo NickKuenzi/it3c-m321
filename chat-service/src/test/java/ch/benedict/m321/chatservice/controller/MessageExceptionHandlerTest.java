@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 class MessageExceptionHandlerTest {
 
+    /** Ist der Broker weg, antwortet der Dienst mit 503 und einer Erklärung. */
     @Test
     void answersWithServiceUnavailable() {
         MessageExceptionHandler handler = new MessageExceptionHandler();

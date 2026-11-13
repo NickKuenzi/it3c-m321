@@ -33,6 +33,7 @@ class RabbitConfigIntegrationTest {
     @Autowired
     private RabbitAdmin rabbitAdmin;
 
+    /** Die Queue chat.persist für den batch-writer existiert nach dem Start. */
     @Test
     void declaresPersistQueue() {
         Properties properties = rabbitAdmin.getQueueProperties(QueueNames.PERSIST_QUEUE);
@@ -40,6 +41,7 @@ class RabbitConfigIntegrationTest {
         assertNotNull(properties);
     }
 
+    /** Die Dead-Letter-Queue chat.dlq existiert nach dem Start. */
     @Test
     void declaresDeadLetterQueue() {
         Properties properties = rabbitAdmin.getQueueProperties(QueueNames.DEAD_LETTER_QUEUE);

@@ -24,6 +24,7 @@ class ChatServiceApplicationTest {
     @ServiceConnection
     static RabbitMQContainer rabbitMq = new RabbitMQContainer("rabbitmq:3.13-management");
 
+    /** Der Kontext fährt mit allen Beans hoch, auch mit dem Verbraucher an der Live-Queue. */
     @Test
     void contextLoads() {
         // Kein Assert nötig. Fährt der Kontext nicht hoch, wirft Spring
