@@ -235,4 +235,6 @@ Test in `LiveQueueIntegrationTest` an. Halte dich an die `CLAUDE.md`.
 
 **Commit:** `fix: Live-Queue haelt auch mit vorab ausgelieferten Nachrichten hoechstens 1000`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test grün (33 Tests, davon 1 neuer für prefetch 10). In
+`application.yml` kontrolliert: 990 wartend plus 10 im Voraus ergibt höchstens 1000. Auf dem Stack
+nachgeprüft: siehe S6.*

@@ -8,14 +8,23 @@ spring:
     port: 5672
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # So viele Nachrichten gibt RabbitMQ dem Verbraucher an der
+        # Live-Queue im Voraus. Vorgabe von Spring wären 250. Zusammen mit
+        # queue-max-length ergibt das die Obergrenze 1000 (S6).
+        prefetch: 10
 
 server:
   port: 8080
 
 live-delivery:
-  # Höchstens so viele Nachrichten in der Live-Queue einer Instanz.
+  # Höchstens so viele WARTENDE Nachrichten in der Live-Queue einer Instanz.
   # Danach fliegt die älteste raus (Spezifikation 3.5, 4.2).
-  queue-max-length: 1000
+  # RabbitMQ zählt für diese Grenze nur wartende Nachrichten, nicht die, die
+  # schon an die Instanz unterwegs sind (prefetch, siehe unten). Damit die
+  # Queue insgesamt nie mehr als 1000 hält (S6): 990 wartend + 10 unterwegs.
+  queue-max-length: 990
   # Nach dieser Zeit verfällt eine Nachricht in der Live-Queue (Spezifikation 3.3).
   queue-message-ttl-ms: 30000
   # So viele Nachrichten pro Raum merkt sich jede Instanz zum Nachholen

@@ -66,8 +66,10 @@ class LiveQueueIntegrationTest {
     }
 
     /**
-     * Grenze 1000, älteste fliegt raus, 30 s TTL, exklusiv, Auto-Delete,
-     * nicht dauerhaft. So wie im Broker eingetragen, nicht nur im Code.
+     * Grenze 990 wartend, älteste fliegt raus, 30 s TTL, exklusiv, Auto-Delete,
+     * nicht dauerhaft. Dazu prefetch 10 beim Verbraucher: zusammen höchstens
+     * 1000 Nachrichten in der Queue (S6). So wie im Broker eingetragen, nicht
+     * nur im Code.
      */
     @Test
     void liveQueueHasSettingsFromSpecification() throws IOException, InterruptedException {
@@ -75,12 +77,43 @@ class LiveQueueIntegrationTest {
         JsonNode queue = readManagementApi("/api/queues/%2F/" + encodedName);
 
         JsonNode arguments = queue.get("arguments");
-        assertEquals(1000, arguments.get("x-max-length").asInt());
+        assertEquals(990, arguments.get("x-max-length").asInt());
         assertEquals("drop-head", arguments.get("x-overflow").asText());
         assertEquals(30000, arguments.get("x-message-ttl").asInt());
         assertTrue(queue.get("exclusive").asBoolean(), "queue must be exclusive");
         assertTrue(queue.get("auto_delete").asBoolean(), "queue must be auto-delete");
         assertEquals(false, queue.get("durable").asBoolean());
+    }
+
+    /**
+     * Der Verbraucher holt höchstens 10 Nachrichten im Voraus. Zusammen mit
+     * den 990 wartenden hält die Queue so nie mehr als 1000 (S6).
+     *
+     * Die Management-Schnittstelle aktualisiert ihre Angaben zu Verbrauchern
+     * nur alle paar Sekunden. Darum wird kurz gewartet, bis er auftaucht.
+     */
+    @Test
+    void consumerFetchesAtMostTenInAdvance() throws IOException, InterruptedException {
+        String encodedName = URLEncoder.encode(liveQueue.getName(), StandardCharsets.UTF_8);
+        JsonNode consumers = waitForConsumerDetails("/api/queues/%2F/" + encodedName);
+
+        assertEquals(1, consumers.size(), "exactly one consumer expected");
+        JsonNode consumer = consumers.get(0);
+        assertEquals(10, consumer.get("prefetch_count").asInt());
+    }
+
+    /** Fragt die Queue ab, bis die Angaben zum Verbraucher da sind, höchstens 15 s. */
+    private JsonNode waitForConsumerDetails(String path) throws IOException, InterruptedException {
+        JsonNode consumers = null;
+        for (int i = 0; i < 30; i++) {
+            JsonNode queue = readManagementApi(path);
+            consumers = queue.get("consumer_details");
+            if (consumers != null && consumers.size() > 0) {
+                return consumers;
+            }
+            Thread.sleep(500);
+        }
+        return consumers;
     }
 
     /** Die Queue hängt am Fanout-Exchange chat.delivery, sonst kommt nichts an. */
