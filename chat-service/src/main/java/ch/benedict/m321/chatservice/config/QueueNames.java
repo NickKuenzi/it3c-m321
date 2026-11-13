@@ -12,8 +12,15 @@ public final class QueueNames {
     /** Schreibweg: hier holt der batch-writer die Nachrichten ab. */
     public static final String PERSIST_QUEUE = "chat.persist";
 
-    /** Zustellweg: fanout an alle web-gateway-Instanzen. */
+    /** Zustellweg: fanout an die Live-Queues aller chat-service-Instanzen. */
     public static final String DELIVERY_EXCHANGE = "chat.delivery";
+
+    /**
+     * Anfang des Namens der Live-Queue. Jede Instanz hängt ihre eigene
+     * Kennung an, zum Beispiel "chat.live.3f2a9c1b7d4e.a1b2c3d4"
+     * (Spezifikation 4.2).
+     */
+    public static final String LIVE_QUEUE_PREFIX = "chat.live.";
 
     /** Dead Letter: was der batch-writer endgültig nicht verarbeiten kann. */
     public static final String DEAD_LETTER_QUEUE = "chat.dlq";

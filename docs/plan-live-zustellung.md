@@ -40,7 +40,13 @@ Die Umsetzung erfolgt von innen nach aussen. Zuerst werden die benötigten Rabbi
 
 **Commit:** `feat: eigene Live-Queue pro Instanz am Exchange chat.delivery`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** *mvn -pl chat-service -am test` grün (17 Tests, davon 3 neue in
+`LiveQueueIntegrationTest`). In `RabbitConfig.liveQueue` kontrolliert: exklusiv, Auto-Delete,
+höchstens 1000 Nachrichten mit `drop-head` und 30 s TTL, die Werte kommen aus `application.yml`.
+Das stimmt mit Spezifikation 3.3, 3.5 und 4.2 überein. Der Name besteht aus Rechnername und
+zufälligem Teil und ist damit auch bei zwei Instanzen auf demselben Rechner eindeutig.
+Die KI hat die Queue zusätzlich als nicht dauerhaft angelegt. Das habe ich übernommen, weil
+eine Live-Queue keinen Neustart des Brokers überleben muss. Sonst nichts geändert.*
 
 ---
 

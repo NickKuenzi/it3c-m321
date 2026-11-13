@@ -12,6 +12,13 @@ spring:
 server:
   port: 8080
 
+live-delivery:
+  # Höchstens so viele Nachrichten in der Live-Queue einer Instanz.
+  # Danach fliegt die älteste raus (Spezifikation 3.5, 4.2).
+  queue-max-length: 1000
+  # Nach dieser Zeit verfällt eine Nachricht in der Live-Queue (Spezifikation 3.3).
+  queue-message-ttl-ms: 30000
+
 logging:
   level:
     # Im Unterricht wollen wir jeden Schritt sehen.
