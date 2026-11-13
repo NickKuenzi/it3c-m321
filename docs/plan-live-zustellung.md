@@ -215,3 +215,24 @@ einen kurzen deutschen Kommentar, der sagt, was der Test prüft. Ändere sonst n
 Testlauf scheiterte, weil ein RabbitMQ-Testcontainer nicht startete: Der Docker-Stack lief noch
 und Docker war überlastet. Nach `docker compose down` grün (32 Tests). Nachgeprüft, dass jetzt
 über jeder Klasse und Methode in chat-service ein Kommentar steht.
+
+### 13.11.2026: Grenze der Live-Queue zählt auch die Nachrichten unterwegs
+
+**Was sich ändert:** Die Live-Queue bekommt `x-max-length: 990` statt 1000, und der Verbraucher
+holt höchstens 10 Nachrichten im Voraus (`prefetch: 10` statt der Vorgabe 250 von Spring).
+Zusammen hält die Queue nie mehr als 1000 Nachrichten.
+
+**Änderungsgrund:** Beim Prüfen von S6 auf dem Stack gefunden: Bei angehaltener Instanz zeigte
+`rabbitmqctl list_queues` für ihre Live-Queue 1250 Nachrichten statt höchstens 1000. RabbitMQ
+zählt für `x-max-length` nur die wartenden Nachrichten. Die 250, die schon an die angehaltene
+Instanz unterwegs waren (prefetch), kommen dazu. S6 verlangt aber, dass die Queue nie mehr als
+1000 hält.
+
+**Auftrag an die KI:** Sorge dafür, dass die Live-Queue einer Instanz insgesamt nie mehr als 1000
+Nachrichten hält, auch wenn die Instanz hängt. Berücksichtige, dass RabbitMQ für `x-max-length`
+nur wartende Nachrichten zählt und die vorab ausgelieferten (prefetch) dazukommen. Passe den
+Test in `LiveQueueIntegrationTest` an. Halte dich an die `CLAUDE.md`.
+
+**Commit:** `fix: Live-Queue haelt auch mit vorab ausgelieferten Nachrichten hoechstens 1000`
+
+**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
