@@ -62,7 +62,14 @@ eine Live-Queue keinen Neustart des Brokers überleben muss. Sonst nichts geänd
 
 **Commit:** `feat: Zwischenspeicher der letzten 100 Nachrichten pro Raum`
 
-**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
+**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (23 Tests, davon 6 neue in
+`RoomMessageBufferTest`). In `RoomMessageBuffer` kontrolliert: pro Raum eine eigene Schlange,
+neue Nachrichten hinten, ab der 101. fällt vorne die älteste weg, die Grösse 100 kommt aus
+`application.yml` (Spezifikation 4.1). `findMessagesAfter` liefert die Nachrichten nach der ID in
+Eingangsreihenfolge. Zusätzlich zum Auftrag hat die KI zwei Dinge eingebaut, die ich übernommen
+habe: die Klasse `MissedMessages`, weil eine leere Liste allein nicht zeigt, ob die ID unbekannt
+war (nötig für `resync`, Spezifikation 2.3), und `synchronized` auf beiden Methoden, weil der
+Verbraucher schreibt, während HTTP-Anfragen lesen.*
 
 ---
 

@@ -18,6 +18,9 @@ live-delivery:
   queue-max-length: 1000
   # Nach dieser Zeit verfällt eine Nachricht in der Live-Queue (Spezifikation 3.3).
   queue-message-ttl-ms: 30000
+  # So viele Nachrichten pro Raum merkt sich jede Instanz zum Nachholen
+  # (Spezifikation 4.1). Reserve für S7 mit 50 Nachrichten.
+  buffer-size-per-room: 100
 
 logging:
   level:
