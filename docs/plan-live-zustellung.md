@@ -85,7 +85,7 @@ Verbraucher schreibt, während HTTP-Anfragen lesen.
 
 **Commit:** `feat: Nachrichten aus der Live-Queue in den Zwischenspeicher legen`
 
-**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Erster Testlauf rot: `ChatServiceApplicationTest.contextLoads` scheiterte
+**Geprüft und korrigiert:** Erster Testlauf rot: `ChatServiceApplicationTest.contextLoads` scheiterte
 mit `ACCESS_REFUSED`. Ursache: Seit Schritt 3 hört der Dienst beim Start an der Live-Queue und
 braucht dafür RabbitMQ. Der alte Test hatte keinen eigenen Broker und verband sich mit dem, was
 auf meinem Rechner auf localhost:5672 lief. Korrigiert: Der Test bekommt einen eigenen
@@ -93,7 +93,7 @@ RabbitMQ-Container, damit er auf jedem Rechner gleich läuft. Danach grün (24 T
 in `LiveMessageListenerIntegrationTest`). In `LiveMessageListener` kontrolliert: `receive` hört auf
 die Live-Queue aus Schritt 1 (Name über `#{liveQueue.name}`, weil er einen Zufallsteil hat) und
 legt jede Nachricht in den Zwischenspeicher, auch ohne Client im Raum (Spezifikation 4.1).
-`concurrency = "1"` sorgt für genau einen Verbraucher pro Instanz (Spezifikation 3.2).*
+`concurrency = "1"` sorgt für genau einen Verbraucher pro Instanz (Spezifikation 3.2).
 
 ---
 
@@ -109,7 +109,7 @@ legt jede Nachricht in den Zwischenspeicher, auch ohne Client im Raum (Spezifika
 
 **Commit:** `feat: SSE-Endpunkt /stream stellt Nachrichten pro Raum zu`
 
-**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Erster Testlauf hing: Spring schickt die SSE-Antwort erst mit dem
+**Geprüft und korrigiert:** Erster Testlauf hing: Spring schickt die SSE-Antwort erst mit dem
 ersten Ereignis, der Testclient wartete in einem leeren Raum ewig. Korrigiert: `register` schickt
 beim Anmelden sofort einen SSE-Kommentar `:connected`, den Clients ignorieren; der Testclient
 bekam ein Zeitlimit von 10 s, damit so ein Fehler den Test rot macht statt ihn hängen zu lassen.
@@ -120,7 +120,7 @@ Ende, Zeitablauf oder Fehler ab (Spezifikation 3.7). In `LiveDelivery` kontrolli
 eine Liste von Verbindungen, `deliver` legt die Nachricht zuerst in den Zwischenspeicher und
 schickt sie dann nur an den eigenen Raum, mit `id:` und `data:` (Spezifikation 2.2, 3.2). Alle
 Methoden haben dieselbe Sperre; übernommen, weil Schritt 5 das für das gesperrte Nachholen
-braucht (Spezifikation 3.6).*
+braucht (Spezifikation 3.6).
 
 ---
 
@@ -136,14 +136,14 @@ braucht (Spezifikation 3.6).*
 
 **Commit:** `feat: verpasste Nachrichten mit Last-Event-ID nachliefern`
 
-**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (30 Tests, davon 3 neue in
+**Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (30 Tests, davon 3 neue in
 `ReconnectIntegrationTest`, darunter der Pflicht-Test für S7 mit genau 50 nachgeholten
 Nachrichten). In `LiveDelivery.register` kontrolliert: erst `:connected`, dann Nachholen aus dem
 Zwischenspeicher, dann Anmelden für live; alles unter derselben Sperre wie `deliver`, damit
 zwischen Nachholen und Anmelden keine Nachricht verloren geht oder doppelt kommt
 (Spezifikation 3.6). Unbekannte ID gibt ein `resync`-Ereignis ohne `id:` (Spezifikation 2.3).
 Zusätzlich zum Auftrag hat die KI einen ungültigen Last-Event-ID-Header (keine UUID) wie eine
-unbekannte ID behandelt; übernommen, weil so ein Header zu keiner Nachricht gehören kann.*
+unbekannte ID behandelt; übernommen, weil so ein Header zu keiner Nachricht gehören kann.
 
 ---
 
@@ -159,13 +159,13 @@ unbekannte ID behandelt; übernommen, weil so ein Header zu keiner Nachricht geh
 
 **Commit:** `test: Zustellung an zwei Instanzen`
 
-**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (32 Tests, davon 2 neue in
+**Geprüft und korrigiert:** Test `mvn -pl chat-service -am test` grün (32 Tests, davon 2 neue in
 `TwoInstancesIntegrationTest`). Kontrolliert: Der Test startet zwei vollständige chat-service-
 Anwendungen am selben RabbitMQ, weil `@SpringBootTest` nur eine Anwendung startet. Die
 Live-Queues haben verschiedene Namen mit je einem Verbraucher (Spezifikation 3.2). Je 200
 Nachrichten über `POST /messages` an jede Instanz: Beide Clients in Raum A erhalten alle 400,
 keine doppelt, die Reihenfolge pro Absender stimmt; der Client in Raum B erhält nur seine eigene
-Nachricht (Szenario S3). Nichts geändert.*
+Nachricht (Szenario S3). Nichts geändert.
 
 ---
 
@@ -181,16 +181,34 @@ Nachricht (Szenario S3). Nichts geändert.*
 
 **Commit:** `test: Skripte fuer die Szenarien der Live-Zustellung`
 
-**Geprüft und korrigiert:** ***Geprüft und korrigiert:** Auf dem laufenden Stack mit `--scale chat-service=2` getestet:
+**Geprüft und korrigiert:** Auf dem laufenden Stack mit `--scale chat-service=2` getestet:
 `listen.sh` an Instanz 1 in Raum A, dann je 5 Nachrichten mit `send.sh` gezielt über Instanz 1
 und Instanz 2; `listen.sh` zählte 10. Damit kommt auch eine Nachricht von Instanz 2 beim Client
 an Instanz 1 an. `send.sh` funktioniert ohne die neuen Werte wie bisher (Bewertung 1). Zusätzlich
 zum Auftrag hat die KI `--max-time 10` in `send.sh` eingebaut, damit das Skript bei einer
 angehaltenen Instanz (S6) nicht hängt; übernommen. README-Tabelle «Stand» und Abschnitt
-«Live-Zustellung nachstellen» kontrolliert.*
+«Live-Zustellung nachstellen» kontrolliert.
 
 ---
 
 ## Änderungen am Plan
 
-*(Noch keine. Jede Änderung kommt hier als eigener Eintrag mit Datum, was sich ändert und warum.)*
+### 13.11.2026: Kommentare über allen Testmethoden von chat-service
+
+**Was sich ändert:** Ein zusätzlicher Commit nach Schritt 7. Alle Testmethoden in
+`chat-service/src/test/`, die noch keinen Kommentar hatten, bekommen einen kurzen Kommentar.
+Betroffen sind vor allem die bestehenden Tests aus der Vorlage (`SendMessageRequestTest`,
+`MessageServiceTest`, `MessagePublisherIntegrationTest`, `MessageControllerIntegrationTest`,
+`MessageExceptionHandlerTest`, `RabbitConfigIntegrationTest`, `ChatServiceApplicationTest`).
+
+**Änderungsgrund:** Beim Prüfen von Szenario S8 vor der Abgabe gefunden: S8 verlangt für den
+ganzen Quelltext von `chat-service/` einen Kommentar über jeder Klasse und Methode. Die neuen
+Klassen aus den Schritten 1 bis 7 erfüllen das, aber einige ältere Testmethoden nicht. Der Code
+selbst ändert sich nicht.
+
+**Auftrag an die KI:** Ergänze in `chat-service/src/test/` über jeder Testmethode ohne Kommentar
+einen kurzen deutschen Kommentar, der sagt, was der Test prüft. Ändere sonst nichts.
+
+**Commit:** `docs: Kommentare ueber allen Testmethoden im chat-service`
+
+**Geprüft und korrigiert:** *(nach dem Schritt ausfüllen)*
